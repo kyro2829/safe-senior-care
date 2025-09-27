@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { getHealthStatusColor } from "@/lib/mockData";
 import { Heart, Activity, Moon, Shield, Target } from "lucide-react";
 
 interface HealthCardProps {
@@ -29,6 +28,31 @@ const statusLabels = {
   critical: 'Alert'
 };
 
+const getStatusStyles = (status: 'normal' | 'warning' | 'critical') => {
+  switch (status) {
+    case 'normal':
+      return {
+        bgClass: 'bg-success/10',
+        textClass: 'text-success'
+      };
+    case 'warning':
+      return {
+        bgClass: 'bg-warning/10',
+        textClass: 'text-warning'
+      };
+    case 'critical':
+      return {
+        bgClass: 'bg-destructive/10',
+        textClass: 'text-destructive'
+      };
+    default:
+      return {
+        bgClass: 'bg-muted/10',
+        textClass: 'text-muted-foreground'
+      };
+  }
+};
+
 export function HealthCard({
   title,
   value,
@@ -41,7 +65,7 @@ export function HealthCard({
   trend
 }: HealthCardProps) {
   const IconComponent = iconMap[icon];
-  const statusColor = getHealthStatusColor(status);
+  const statusStyles = getStatusStyles(status);
   const progressPercentage = goal && current ? (current / goal) * 100 : 0;
 
   return (
@@ -49,8 +73,8 @@ export function HealthCard({
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl bg-${statusColor}/10`}>
-              <IconComponent className={`h-5 w-5 text-${statusColor}`} />
+            <div className={`p-2 rounded-xl ${statusStyles.bgClass}`}>
+              <IconComponent className={`h-5 w-5 ${statusStyles.textClass}`} />
             </div>
             <CardTitle className="text-elderly font-semibold text-foreground">
               {title}
