@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth";
 import { 
   Heart, 
   Activity, 
@@ -9,11 +10,14 @@ import {
   Users, 
   Stethoscope,
   ArrowRight,
-  CheckCircle
+  CheckCircle,
+  LogOut
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Index() {
+  const { user, userRole, signOut } = useAuth();
+  
   const features = [
     {
       icon: Heart,
@@ -63,16 +67,32 @@ export default function Index() {
               <h1 className="text-2xl font-bold text-foreground">Elder Watch</h1>
             </div>
             <div className="flex gap-4">
-              <Link to="/patient">
-                <Button variant="elderly-secondary" size="elderly">
-                  Patient Login
-                </Button>
-              </Link>
-              <Link to="/caregiver">
-                <Button variant="elderly" size="elderly">
-                  Caregiver Login
-                </Button>
-              </Link>
+              {user ? (
+                <>
+                  <Link to={userRole === 'caregiver' ? '/caregiver' : '/patient'}>
+                    <Button variant="elderly" size="elderly">
+                      Go to Dashboard
+                    </Button>
+                  </Link>
+                  <Button variant="elderly-secondary" size="elderly" onClick={signOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link to="/auth?type=patient">
+                    <Button variant="elderly-secondary" size="elderly">
+                      Patient Login
+                    </Button>
+                  </Link>
+                  <Link to="/auth?type=caregiver">
+                    <Button variant="elderly" size="elderly">
+                      Caregiver Login
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -99,19 +119,31 @@ export default function Index() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to="/patient">
-              <Button variant="elderly-xl" className="w-full sm:w-auto">
-                <Users className="h-6 w-6 mr-3" />
-                Patient Dashboard
-                <ArrowRight className="h-6 w-6 ml-3" />
-              </Button>
-            </Link>
-            <Link to="/caregiver">
-              <Button variant="elderly-secondary" size="elderly-xl" className="w-full sm:w-auto">
-                <Stethoscope className="h-6 w-6 mr-3" />
-                Caregiver Dashboard
-              </Button>
-            </Link>
+            {user ? (
+              <Link to={userRole === 'caregiver' ? '/caregiver' : '/patient'}>
+                <Button variant="elderly-xl" className="w-full sm:w-auto">
+                  <Users className="h-6 w-6 mr-3" />
+                  Go to Dashboard
+                  <ArrowRight className="h-6 w-6 ml-3" />
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/auth?type=patient">
+                  <Button variant="elderly-xl" className="w-full sm:w-auto">
+                    <Users className="h-6 w-6 mr-3" />
+                    Patient Dashboard
+                    <ArrowRight className="h-6 w-6 ml-3" />
+                  </Button>
+                </Link>
+                <Link to="/auth?type=caregiver">
+                  <Button variant="elderly-secondary" size="elderly-xl" className="w-full sm:w-auto">
+                    <Stethoscope className="h-6 w-6 mr-3" />
+                    Caregiver Dashboard
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
@@ -193,18 +225,29 @@ export default function Index() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/patient">
-                <Button variant="elderly-xl" className="w-full sm:w-auto">
-                  <Heart className="h-6 w-6 mr-3" />
-                  View Patient Demo
-                </Button>
-              </Link>
-              <Link to="/caregiver">
-                <Button variant="elderly-secondary" size="elderly-xl" className="w-full sm:w-auto">
-                  <Users className="h-6 w-6 mr-3" />
-                  Caregiver Demo
-                </Button>
-              </Link>
+              {user ? (
+                <Link to={userRole === 'caregiver' ? '/caregiver' : '/patient'}>
+                  <Button variant="elderly-xl" className="w-full sm:w-auto">
+                    <Heart className="h-6 w-6 mr-3" />
+                    Go to Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <>
+                  <Link to="/auth?type=patient">
+                    <Button variant="elderly-xl" className="w-full sm:w-auto">
+                      <Heart className="h-6 w-6 mr-3" />
+                      View Patient Demo
+                    </Button>
+                  </Link>
+                  <Link to="/register/caregiver">
+                    <Button variant="elderly-secondary" size="elderly-xl" className="w-full sm:w-auto">
+                      <Users className="h-6 w-6 mr-3" />
+                      Register as Caregiver
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

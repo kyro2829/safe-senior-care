@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HealthCard } from "@/components/HealthCard";
 import { mockHealthData, mockCurrentUser, getTimeAgo } from "@/lib/mockData";
-import { Phone, Activity, TrendingUp, Clock, Shield } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Phone, Activity, TrendingUp, Clock, Shield, LogOut } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function PatientDashboard() {
+  const { user, signOut } = useAuth();
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const healthData = mockHealthData;
-  const user = mockCurrentUser;
+  const currentUser = mockCurrentUser;
 
   // Prepare chart data
   const chartData = healthData.heartRate.history.map((metric, index) => ({
@@ -31,57 +33,68 @@ export default function PatientDashboard() {
       {/* Header */}
       <header className="bg-card/80 backdrop-blur-sm border-b border-border/50 shadow-card">
         <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Welcome back, {user.displayName}
-              </h1>
-              <p className="text-elderly text-muted-foreground">
-                Here's your health overview for today
-              </p>
-            </div>
-            <Dialog open={showEmergencyModal} onOpenChange={setShowEmergencyModal}>
-              <DialogTrigger asChild>
-                <Button size="lg" variant="destructive" className="elderly-xl">
-                  <Phone className="h-5 w-5 mr-2" />
-                  Emergency
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  Welcome back, {currentUser.displayName}
+                </h1>
+                <p className="text-elderly text-muted-foreground">
+                  Here's your health overview for today
+                </p>
+              </div>
+              <div className="flex gap-4">
+                <Dialog open={showEmergencyModal} onOpenChange={setShowEmergencyModal}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" variant="destructive" className="elderly-xl">
+                      <Phone className="h-5 w-5 mr-2" />
+                      Emergency
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl text-center">Emergency Contact</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <p className="text-center text-elderly">
+                        Do you need to contact your caregiver immediately?
+                      </p>
+                      <div className="text-center space-y-2">
+                        <p className="font-semibold">Emergency Contact:</p>
+                        <p className="text-lg text-primary font-mono">{currentUser.emergencyContact}</p>
+                      </div>
+                      <div className="flex gap-3 justify-center">
+                        <Button 
+                          onClick={handleEmergencyCall}
+                          size="lg" 
+                          variant="destructive"
+                          className="elderly"
+                        >
+                          <Phone className="h-4 w-4 mr-2" />
+                          Call Now
+                        </Button>
+                        <Button 
+                          onClick={() => setShowEmergencyModal(false)}
+                          size="lg" 
+                          variant="secondary"
+                          className="elderly"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Button 
+                  onClick={signOut}
+                  size="lg" 
+                  variant="elderly-secondary"
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="h-5 w-5" />
+                  Sign Out
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="text-xl text-center">Emergency Contact</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <p className="text-center text-elderly">
-                    Do you need to contact your caregiver immediately?
-                  </p>
-                  <div className="text-center space-y-2">
-                    <p className="font-semibold">Emergency Contact:</p>
-                    <p className="text-lg text-primary font-mono">{user.emergencyContact}</p>
-                  </div>
-                  <div className="flex gap-3 justify-center">
-                    <Button 
-                      onClick={handleEmergencyCall}
-                      size="lg" 
-                      variant="destructive"
-                      className="elderly"
-                    >
-                      <Phone className="h-4 w-4 mr-2" />
-                      Call Now
-                    </Button>
-                    <Button 
-                      onClick={() => setShowEmergencyModal(false)}
-                      size="lg" 
-                      variant="secondary"
-                      className="elderly"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+              </div>
+            </div>
         </div>
       </header>
 
