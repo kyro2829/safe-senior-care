@@ -178,7 +178,6 @@ export default function PatientDashboard() {
                     strokeWidth={3}
                     dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
                     name="Steps (Daily)"
-                    yAxisId="steps"
                   />
                   <Line 
                     type="monotone" 
