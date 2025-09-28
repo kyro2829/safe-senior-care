@@ -34,6 +34,7 @@ export default function Auth() {
   const { signIn, signUp, loading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [authMode, setAuthMode] = useState<'caregiver' | 'patient'>('caregiver');
   
   const userType = 'caregiver'; // Only caregivers can register
   const defaultTab = searchParams.get('tab') || 'signin';
@@ -125,24 +126,50 @@ export default function Auth() {
               <Stethoscope className="h-8 w-8" />
             </div>
           </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-2 p-1 bg-muted rounded-lg">
+              <Button
+                variant={authMode === 'caregiver' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setAuthMode('caregiver')}
+                className="flex-1"
+              >
+                Caregiver
+              </Button>
+              <Button
+                variant={authMode === 'patient' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setAuthMode('patient')}
+                className="flex-1"
+              >
+                Patient
+              </Button>
+            </div>
+            
             <div>
               <CardTitle className="text-2xl font-bold">
-                Caregiver Access
+                {authMode === 'caregiver' ? 'Caregiver Access' : 'Patient Access'}
               </CardTitle>
               <CardDescription className="text-elderly">
-                {defaultTab === 'signin' 
-                  ? 'Sign in to your caregiver account' 
-                  : 'Create a new caregiver account'
+                {authMode === 'caregiver' 
+                  ? (defaultTab === 'signin' 
+                      ? 'Sign in to your caregiver account' 
+                      : 'Create a new caregiver account')
+                  : 'Sign in to your patient account'
                 }
               </CardDescription>
             </div>
+          </div>
         </CardHeader>
 
         <CardContent>
           <Tabs defaultValue={defaultTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className={`grid w-full mb-6 ${authMode === 'patient' ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <TabsTrigger value="signin" className="elderly">Sign In</TabsTrigger>
-              <TabsTrigger value="signup" className="elderly">Register as Caregiver</TabsTrigger>
+              {authMode === 'caregiver' && (
+                <TabsTrigger value="signup" className="elderly">Register as Caregiver</TabsTrigger>
+              )}
             </TabsList>
 
             <TabsContent value="signin">
@@ -191,107 +218,112 @@ export default function Auth() {
               </form>
             </TabsContent>
 
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-firstname" className="text-elderly">First Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            {authMode === 'caregiver' && (
+              <TabsContent value="signup">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-firstname" className="text-elderly">First Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-firstname"
+                          type="text"
+                          placeholder="First name"
+                          className={`pl-10 elderly ${errors.firstName ? 'border-destructive' : ''}`}
+                          value={signUpData.firstName}
+                          onChange={(e) => setSignUpData(prev => ({ ...prev, firstName: e.target.value }))}
+                          required
+                        />
+                      </div>
+                      {errors.firstName && <p className="text-sm text-destructive">{errors.firstName}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-lastname" className="text-elderly">Last Name</Label>
                       <Input
-                        id="signup-firstname"
+                        id="signup-lastname"
                         type="text"
-                        placeholder="First name"
-                        className={`pl-10 elderly ${errors.firstName ? 'border-destructive' : ''}`}
-                        value={signUpData.firstName}
-                        onChange={(e) => setSignUpData(prev => ({ ...prev, firstName: e.target.value }))}
+                        placeholder="Last name"
+                        className={`elderly ${errors.lastName ? 'border-destructive' : ''}`}
+                        value={signUpData.lastName}
+                        onChange={(e) => setSignUpData(prev => ({ ...prev, lastName: e.target.value }))}
+                        required
+                      />
+                      {errors.lastName && <p className="text-sm text-destructive">{errors.lastName}</p>}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email" className="text-elderly">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="Enter your email"
+                        className={`pl-10 elderly ${errors.email ? 'border-destructive' : ''}`}
+                        value={signUpData.email}
+                        onChange={(e) => setSignUpData(prev => ({ ...prev, email: e.target.value }))}
                         required
                       />
                     </div>
-                    {errors.firstName && <p className="text-sm text-destructive">{errors.firstName}</p>}
+                    {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="signup-lastname" className="text-elderly">Last Name</Label>
-                    <Input
-                      id="signup-lastname"
-                      type="text"
-                      placeholder="Last name"
-                      className={`elderly ${errors.lastName ? 'border-destructive' : ''}`}
-                      value={signUpData.lastName}
-                      onChange={(e) => setSignUpData(prev => ({ ...prev, lastName: e.target.value }))}
-                      required
-                    />
-                    {errors.lastName && <p className="text-sm text-destructive">{errors.lastName}</p>}
+                    <Label htmlFor="signup-phone" className="text-elderly">Phone Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signup-phone"
+                        type="tel"
+                        placeholder="Enter your phone number"
+                        className={`pl-10 elderly ${errors.phone ? 'border-destructive' : ''}`}
+                        value={signUpData.phone}
+                        onChange={(e) => setSignUpData(prev => ({ ...prev, phone: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email" className="text-elderly">Email</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      placeholder="Enter your email"
-                      className={`pl-10 elderly ${errors.email ? 'border-destructive' : ''}`}
-                      value={signUpData.email}
-                      onChange={(e) => setSignUpData(prev => ({ ...prev, email: e.target.value }))}
-                      required
-                    />
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password" className="text-elderly">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        placeholder="Create a strong password (8+ chars, A-Z, a-z, 0-9, !@#$)"
+                        className={`pl-10 elderly ${errors.password ? 'border-destructive' : ''}`}
+                        value={signUpData.password}
+                        onChange={(e) => setSignUpData(prev => ({ ...prev, password: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                   </div>
-                  {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="signup-phone" className="text-elderly">Phone Number</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-phone"
-                      type="tel"
-                      placeholder="Enter your phone number"
-                      className={`pl-10 elderly ${errors.phone ? 'border-destructive' : ''}`}
-                      value={signUpData.phone}
-                      onChange={(e) => setSignUpData(prev => ({ ...prev, phone: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password" className="text-elderly">Password</Label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="Create a strong password (8+ chars, A-Z, a-z, 0-9, !@#$)"
-                      className={`pl-10 elderly ${errors.password ? 'border-destructive' : ''}`}
-                      value={signUpData.password}
-                      onChange={(e) => setSignUpData(prev => ({ ...prev, password: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-                </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full elderly-xl mt-6"
-                  disabled={isSubmitting || loading}
-                >
-                  {isSubmitting ? 'Creating Account...' : 'Create Account'}
-                </Button>
-              </form>
-            </TabsContent>
+                  <Button 
+                    type="submit" 
+                    className="w-full elderly-xl mt-6"
+                    disabled={isSubmitting || loading}
+                  >
+                    {isSubmitting ? 'Creating Account...' : 'Create Account'}
+                  </Button>
+                </form>
+              </TabsContent>
+            )}
           </Tabs>
 
           <div className="mt-6">
             <Separator className="my-4" />
             <p className="text-center text-sm text-muted-foreground">
-              Need patient access? Contact your caregiver to create your account.
+              {authMode === 'caregiver' 
+                ? 'Need patient access? Contact your caregiver to create your account.'
+                : 'Need caregiver access? Switch to caregiver mode to create an account.'
+              }
             </p>
           </div>
         </CardContent>
