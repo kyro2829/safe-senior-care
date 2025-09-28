@@ -45,19 +45,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('Error fetching user role:', error);
         return null;
       }
       
-      return data?.role || null;
+      return (data?.role as 'caregiver' | 'patient' | undefined) ?? null;
     } catch (error) {
       console.error('Error fetching user role:', error);
       return null;
     }
   };
+
+  const ensureUserRole = async (userId: string): Promise<'caregiver' | 'patient' | null> => {
+    // Try to get role first
+    const currentRole = await fetchUserRole(userId);
+    if (currentRole) return currentRole;
+
+    // If no role exists, default to caregiver for existing accounts and persist it
+    try {
+      const { error } = await supabase.from('user_roles').insert({
+        user_id: userId,
+        role: 'caregiver',
+      });
+      if (error) {
+        console.error('Error assigning default role:', error);
+        return null;
+      }
+      return 'caregiver';
+    } catch (e) {
+      console.error('Error assigning default role:', e);
+      return null;
+    }
+  };
+
 
   useEffect(() => {
     // Set up auth state listener
@@ -69,7 +92,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (session?.user) {
           // Fetch user role asynchronously
           setTimeout(async () => {
-            const role = await fetchUserRole(session.user.id);
+            const role = await ensureUserRole(session.user.id);
             setUserRole(role);
             setLoading(false);
           }, 0);
@@ -88,7 +111,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (session?.user) {
         // Fetch user role for existing session
         setTimeout(async () => {
-          const role = await fetchUserRole(session.user.id);
+          const role = await ensureUserRole(session.user.id);
           setUserRole(role);
           setLoading(false);
         }, 0);
