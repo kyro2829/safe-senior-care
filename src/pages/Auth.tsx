@@ -12,7 +12,12 @@ import { z } from 'zod';
 
 const signUpSchema = z.object({
   email: z.string().email('Invalid email address').max(255),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/\d/, 'Password must contain at least one number')
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character'),
   firstName: z.string().trim().min(1, 'First name is required').max(100),
   lastName: z.string().trim().min(1, 'Last name is required').max(100),
   phone: z.string().trim().min(1, 'Phone number is required').max(20),
@@ -30,7 +35,7 @@ export default function Auth() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  const userType = searchParams.get('type') || 'caregiver';
+  const userType = 'caregiver'; // Only caregivers can register
   const defaultTab = searchParams.get('tab') || 'signin';
 
   const [signInData, setSignInData] = useState({
@@ -120,24 +125,24 @@ export default function Auth() {
               <Stethoscope className="h-8 w-8" />
             </div>
           </div>
-          <div>
-            <CardTitle className="text-2xl font-bold">
-              {userType === 'caregiver' ? 'Caregiver' : 'Patient'} Access
-            </CardTitle>
-            <CardDescription className="text-elderly">
-              {defaultTab === 'signin' 
-                ? `Sign in to your ${userType} account` 
-                : `Create a new ${userType} account`
-              }
-            </CardDescription>
-          </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">
+                Caregiver Access
+              </CardTitle>
+              <CardDescription className="text-elderly">
+                {defaultTab === 'signin' 
+                  ? 'Sign in to your caregiver account' 
+                  : 'Create a new caregiver account'
+                }
+              </CardDescription>
+            </div>
         </CardHeader>
 
         <CardContent>
           <Tabs defaultValue={defaultTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="signin" className="elderly">Sign In</TabsTrigger>
-              <TabsTrigger value="signup" className="elderly">Sign Up</TabsTrigger>
+              <TabsTrigger value="signup" className="elderly">Register as Caregiver</TabsTrigger>
             </TabsList>
 
             <TabsContent value="signin">
@@ -262,7 +267,7 @@ export default function Auth() {
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="Create a password (min. 6 characters)"
+                      placeholder="Create a strong password (8+ chars, A-Z, a-z, 0-9, !@#$)"
                       className={`pl-10 elderly ${errors.password ? 'border-destructive' : ''}`}
                       value={signUpData.password}
                       onChange={(e) => setSignUpData(prev => ({ ...prev, password: e.target.value }))}
@@ -286,11 +291,7 @@ export default function Auth() {
           <div className="mt-6">
             <Separator className="my-4" />
             <p className="text-center text-sm text-muted-foreground">
-              {userType === 'caregiver' ? (
-                <>Need patient access? Contact your caregiver</>
-              ) : (
-                <>Need caregiver access? <a href="/auth?type=caregiver" className="text-primary hover:underline">Sign up here</a></>
-              )}
+              Need patient access? Contact your caregiver to create your account.
             </p>
           </div>
         </CardContent>

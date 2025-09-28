@@ -3,24 +3,25 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { HealthCard } from "@/components/HealthCard";
+import { CreatePatientModal } from "@/components/CreatePatientModal";
+import { useAuth } from "@/hooks/useAuth";
 import { mockPatients, mockAlerts, getTimeAgo, getHealthStatusColor, type Patient, type Alert } from "@/lib/mockData";
 import { 
   Users, 
   AlertTriangle, 
-  Plus, 
   Phone, 
   Clock, 
   Activity,
   Eye,
   UserPlus,
   Bell,
-  Heart
+  Heart,
+  LogOut
 } from "lucide-react";
 
 export default function CaregiverDashboard() {
+  const { user, signOut } = useAuth();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [showAlertDetails, setShowAlertDetails] = useState<Alert | null>(null);
@@ -57,63 +58,23 @@ export default function CaregiverDashboard() {
               </p>
             </div>
             <div className="flex gap-3">
-              <Dialog open={showAddPatient} onOpenChange={setShowAddPatient}>
-                <DialogTrigger asChild>
-                  <Button size="lg" className="elderly">
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Add Patient
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="text-xl">Add New Patient</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleAddPatient} className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="displayName">Full Name</Label>
-                      <Input 
-                        id="displayName" 
-                        placeholder="Enter patient's full name"
-                        className="text-elderly"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input 
-                        id="phone" 
-                        type="tel"
-                        placeholder="+1 (555) 123-4567"
-                        className="text-elderly"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="emergencyContact">Emergency Contact</Label>
-                      <Input 
-                        id="emergencyContact" 
-                        type="tel"
-                        placeholder="+1 (555) 987-6543"
-                        className="text-elderly"
-                        required
-                      />
-                    </div>
-                    <div className="flex gap-3 justify-end pt-4">
-                      <Button 
-                        type="button"
-                        onClick={() => setShowAddPatient(false)}
-                        variant="secondary"
-                        className="elderly"
-                      >
-                        Cancel
-                      </Button>
-                      <Button type="submit" className="elderly">
-                        Create Account
-                      </Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                size="lg" 
+                onClick={() => setShowAddPatient(true)}
+                className="elderly"
+              >
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Patient
+              </Button>
+              <Button 
+                onClick={signOut}
+                size="lg" 
+                variant="elderly-secondary"
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-5 w-5" />
+                Sign Out
+              </Button>
             </div>
           </div>
         </div>
@@ -420,6 +381,16 @@ export default function CaregiverDashboard() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Add Patient Modal */}
+        <CreatePatientModal 
+          open={showAddPatient} 
+          onOpenChange={setShowAddPatient}
+          onPatientCreated={() => {
+            // In a real app, this would refresh the patient list
+            console.log('Patient created successfully');
+          }}
+        />
       </main>
     </div>
   );

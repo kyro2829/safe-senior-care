@@ -9,7 +9,12 @@ import { z } from 'zod';
 
 const patientSchema = z.object({
   email: z.string().email('Invalid email address').max(255),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/\d/, 'Password must contain at least one number')
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character'),
   firstName: z.string().trim().min(1, 'First name is required').max(100),
   lastName: z.string().trim().min(1, 'Last name is required').max(100),
   phone: z.string().trim().min(1, 'Phone number is required').max(20),
@@ -208,7 +213,7 @@ export function CreatePatientModal({ open, onOpenChange, onPatientCreated }: Cre
               <Input
                 id="patient-password"
                 type="password"
-                placeholder="Create initial password (min. 6 characters)"
+                placeholder="Create strong password (8+ chars, A-Z, a-z, 0-9, !@#$)"
                 className={`pl-10 elderly ${errors.password ? 'border-destructive' : ''}`}
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
