@@ -199,12 +199,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const createPatientAccount = async (email: string, password: string, metadata: any) => {
     try {
-      // Create the patient user account
-      const { data, error } = await supabase.auth.admin.createUser({
-        email,
-        password,
-        user_metadata: metadata,
-        email_confirm: true
+      // Call the edge function to create patient account
+      const { data, error } = await supabase.functions.invoke('create-patient', {
+        body: {
+          email,
+          password,
+          metadata
+        }
       });
 
       if (error) {
@@ -212,40 +213,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return { error };
       }
 
-      if (data.user) {
-        // Create patient role
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: data.user.id,
-            role: 'patient'
-          });
+      if (data?.error) {
+        toast.error(data.error);
+        return { error: data.error };
+      }
 
-        if (roleError) {
-          console.error('Error creating patient role:', roleError);
-          return { error: roleError };
-        }
-
-        // Create caregiver-patient relationship
-        const { error: relationshipError } = await supabase
-          .from('caregiver_patients')
-          .insert({
-            caregiver_id: user?.id,
-            patient_id: data.user.id
-          });
-
-        if (relationshipError) {
-          console.error('Error creating caregiver-patient relationship:', relationshipError);
-          return { error: relationshipError };
-        }
-
+      if (data?.success) {
         toast.success('Patient account created successfully!');
         return { error: null, data: data.user };
       }
 
-      return { error: null };
+      return { error: 'Unknown error occurred' };
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to create patient account');
       return { error };
     }
   };
