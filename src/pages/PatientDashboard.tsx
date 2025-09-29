@@ -1,18 +1,54 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { HealthCard } from "@/components/HealthCard";
-import { mockHealthData, mockCurrentUser, getTimeAgo } from "@/lib/mockData";
+import { mockHealthData, getTimeAgo } from "@/lib/mockData";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Phone, Activity, TrendingUp, Clock, Shield, LogOut } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+interface UserProfile {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  emergency_contact: string | null;
+}
 
 export default function PatientDashboard() {
   const { user, signOut } = useAuth();
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
   const healthData = mockHealthData;
-  const currentUser = mockCurrentUser;
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, phone, emergency_contact')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        
+        if (error) {
+          console.error('Error fetching user profile:', error);
+        } else if (data) {
+          setUserProfile(data);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user?.id]);
 
   // Prepare chart data
   const chartData = healthData.heartRate.history.map((metric, index) => ({
@@ -21,6 +57,18 @@ export default function PatientDashboard() {
     steps: healthData.steps.history[index]?.value || 0,
     sleep: healthData.sleep.history[index]?.value || 0,
   }));
+
+  const displayName = userProfile?.first_name && userProfile?.last_name 
+    ? `${userProfile.first_name} ${userProfile.last_name}`
+    : userProfile?.first_name || 'Patient';
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   const handleEmergencyCall = () => {
     // In a real app, this would initiate an emergency call
@@ -36,7 +84,7 @@ export default function PatientDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-foreground">
-                  Welcome back, {currentUser.displayName}
+                  Welcome back, {displayName}
                 </h1>
                 <p className="text-elderly text-muted-foreground">
                   Here's your health overview for today
@@ -60,7 +108,7 @@ export default function PatientDashboard() {
                       </p>
                       <div className="text-center space-y-2">
                         <p className="font-semibold">Emergency Contact:</p>
-                        <p className="text-lg text-primary font-mono">{currentUser.emergencyContact}</p>
+                        <p className="text-lg text-primary font-mono">{userProfile?.emergency_contact || 'Not set'}</p>
                       </div>
                       <div className="flex gap-3 justify-center">
                         <Button 

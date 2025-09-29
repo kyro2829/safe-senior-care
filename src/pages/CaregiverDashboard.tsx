@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { HealthCard } from "@/components/HealthCard";
 import { CreatePatientModal } from "@/components/CreatePatientModal";
 import { useAuth } from "@/hooks/useAuth";
-import { mockPatients, mockAlerts, getTimeAgo, getHealthStatusColor, type Patient, type Alert } from "@/lib/mockData";
+import { supabase } from "@/integrations/supabase/client";
+import { mockAlerts, getTimeAgo, getHealthStatusColor, type Alert } from "@/lib/mockData";
 import { 
   Users, 
   AlertTriangle, 
@@ -20,28 +21,126 @@ import {
   LogOut
 } from "lucide-react";
 
+interface PatientProfile {
+  id: string;
+  user_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  emergency_contact: string | null;
+}
+
 export default function CaregiverDashboard() {
   const { user, signOut } = useAuth();
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [selectedPatient, setSelectedPatient] = useState<PatientProfile | null>(null);
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [showAlertDetails, setShowAlertDetails] = useState<Alert | null>(null);
-  const [patients] = useState<Patient[]>(mockPatients);
+  const [patients, setPatients] = useState<PatientProfile[]>([]);
   const [alerts] = useState<Alert[]>(mockAlerts);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      if (!user?.id) return;
+      
+      try {
+        // First get the patient relationships
+        const { data: relationships, error: relError } = await supabase
+          .from('caregiver_patients')
+          .select('patient_id')
+          .eq('caregiver_id', user.id);
+        
+        if (relError) {
+          console.error('Error fetching relationships:', relError);
+          setLoading(false);
+          return;
+        }
+        
+        const patientIds = relationships?.map(r => r.patient_id) || [];
+        
+        if (patientIds.length > 0) {
+          // Then get the profiles for those patient IDs
+          const { data: profiles, error: profileError } = await supabase
+            .from('profiles')
+            .select('id, user_id, first_name, last_name, phone, emergency_contact')
+            .in('user_id', patientIds);
+          
+          if (profileError) {
+            console.error('Error fetching profiles:', profileError);
+          } else if (profiles) {
+            setPatients(profiles);
+          }
+        } else {
+          setPatients([]);
+        }
+      } catch (error) {
+        console.error('Error fetching patients:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPatients();
+  }, [user?.id]);
 
   const unacknowledgedAlerts = alerts.filter(alert => !alert.acknowledged);
   const criticalAlerts = alerts.filter(alert => alert.severity === 'critical');
 
-  const handleAddPatient = (event: React.FormEvent) => {
-    event.preventDefault();
-    // In a real app, this would call the create-patient edge function
-    setShowAddPatient(false);
-    alert("Patient account created successfully! Temporary password sent via SMS.");
+  const refreshPatients = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Manual join approach
+      const { data: relationships, error: relError } = await supabase
+        .from('caregiver_patients')
+        .select('patient_id')
+        .eq('caregiver_id', user.id);
+      
+      if (relError || !relationships) {
+        console.error('Error fetching relationships:', relError);
+        return;
+      }
+      
+      const patientIds = relationships.map(r => r.patient_id);
+      
+      if (patientIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, user_id, first_name, last_name, phone, emergency_contact')
+          .in('user_id', patientIds);
+        
+        if (profileError) {
+          console.error('Error fetching profiles:', profileError);
+        } else if (profiles) {
+          setPatients(profiles);
+        }
+      } else {
+        setPatients([]);
+      }
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    }
   };
 
   const acknowledgeAlert = (alertId: string) => {
     // In a real app, this would update the alert status in the database
     alert("Alert acknowledged and logged.");
   };
+
+  const getPatientDisplayName = (patient: PatientProfile) => {
+    if (patient.first_name && patient.last_name) {
+      return `${patient.first_name} ${patient.last_name}`;
+    }
+    return patient.first_name || 'Patient';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
@@ -197,82 +296,73 @@ export default function CaregiverDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {patients.map((patient) => (
-                <Card 
-                  key={patient.id} 
-                  className="p-4 shadow-card hover:shadow-health transition-all duration-300 cursor-pointer hover:scale-[1.02]"
-                  onClick={() => setSelectedPatient(patient)}
-                >
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-elderly text-foreground">
-                        {patient.displayName}
-                      </h3>
-                      <Badge 
-                        variant={
-                          patient.healthData.heartRate.status === 'normal' ? 'default' :
-                          patient.healthData.heartRate.status === 'warning' ? 'secondary' : 'destructive'
-                        }
-                        className="text-xs"
+              {patients.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-elderly text-muted-foreground">No patients assigned yet.</p>
+                  <p className="text-sm text-muted-foreground mt-2">Click "Add Patient" to create a new patient account.</p>
+                </div>
+              ) : (
+                patients.map((patient) => (
+                  <Card 
+                    key={patient.id} 
+                    className="p-4 shadow-card hover:shadow-health transition-all duration-300 cursor-pointer hover:scale-[1.02]"
+                    onClick={() => setSelectedPatient(patient)}
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-elderly text-foreground">
+                          {getPatientDisplayName(patient)}
+                        </h3>
+                        <Badge 
+                          variant="default"
+                          className="text-xs"
+                        >
+                          Active
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="space-y-1">
+                          <p className="text-muted-foreground">Phone</p>
+                          <p className="font-semibold text-xs">
+                            {patient.phone || 'Not set'}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-muted-foreground">Emergency</p>
+                          <p className="font-semibold text-xs">
+                            {patient.emergency_contact || 'Not set'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        size="sm" 
+                        className="w-full elderly"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPatient(patient);
+                        }}
                       >
-                        {patient.healthData.heartRate.status}
-                      </Badge>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Profile
+                      </Button>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div className="space-y-1">
-                        <p className="text-muted-foreground">Heart Rate</p>
-                        <p className="font-semibold flex items-center gap-1">
-                          <Heart className="h-3 w-3 text-destructive" />
-                          {patient.healthData.heartRate.current} BPM
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-muted-foreground">Steps</p>
-                        <p className="font-semibold">
-                          {patient.healthData.steps.current.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-muted-foreground">Sleep</p>
-                        <p className="font-semibold">
-                          {patient.healthData.sleep.current}h
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-muted-foreground">Last Active</p>
-                        <p className="font-semibold text-xs">
-                          {getTimeAgo(patient.lastActive)}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      size="sm" 
-                      className="w-full elderly"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedPatient(patient);
-                      }}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Patient Details Modal */}
         <Dialog open={!!selectedPatient} onOpenChange={() => setSelectedPatient(null)}>
-          <DialogContent className="sm:max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-2xl">
             {selectedPatient && (
               <>
                 <DialogHeader>
                   <DialogTitle className="text-xl">
-                    {selectedPatient.displayName} - Health Details
+                    {getPatientDisplayName(selectedPatient)} - Profile Details
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
@@ -280,53 +370,18 @@ export default function CaregiverDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                      <p className="text-elderly font-mono">{selectedPatient.phone}</p>
+                      <p className="text-elderly font-mono">{selectedPatient.phone || 'Not set'}</p>
                     </div>
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Emergency Contact</p>
-                      <p className="text-elderly font-mono">{selectedPatient.emergencyContact}</p>
+                      <p className="text-elderly font-mono">{selectedPatient.emergency_contact || 'Not set'}</p>
                     </div>
                   </div>
 
-                  {/* Health Metrics */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <HealthCard
-                      title="Heart Rate"
-                      value={selectedPatient.healthData.heartRate.current}
-                      unit="BPM"
-                      status={selectedPatient.healthData.heartRate.status}
-                      icon="heart"
-                      trend="stable"
-                    />
-                    <HealthCard
-                      title="Daily Steps"
-                      value={selectedPatient.healthData.steps.current.toLocaleString()}
-                      unit="steps"
-                      status={selectedPatient.healthData.steps.status}
-                      icon="steps"
-                      goal={selectedPatient.healthData.steps.goal}
-                      current={selectedPatient.healthData.steps.current}
-                    />
-                    <HealthCard
-                      title="Sleep"
-                      value={selectedPatient.healthData.sleep.current}
-                      unit="hours"
-                      status={selectedPatient.healthData.sleep.status}
-                      icon="sleep"
-                      goal={selectedPatient.healthData.sleep.goal}
-                      current={selectedPatient.healthData.sleep.current}
-                    />
-                    <HealthCard
-                      title="Fall Detection"
-                      value={selectedPatient.healthData.fallDetection.status === 'active' ? 'Active' : 'Inactive'}
-                      status={selectedPatient.healthData.fallDetection.status === 'active' ? 'normal' : 'warning'}
-                      icon="fall"
-                      subtitle={
-                        selectedPatient.healthData.fallDetection.incidentCount > 0
-                          ? `${selectedPatient.healthData.fallDetection.incidentCount} incidents`
-                          : 'No incidents'
-                      }
-                    />
+                  <div className="text-center">
+                    <p className="text-elderly text-muted-foreground">
+                      Health monitoring data will be displayed here once the patient starts using their account.
+                    </p>
                   </div>
                 </div>
               </>
@@ -387,8 +442,7 @@ export default function CaregiverDashboard() {
           open={showAddPatient} 
           onOpenChange={setShowAddPatient}
           onPatientCreated={() => {
-            // In a real app, this would refresh the patient list
-            console.log('Patient created successfully');
+            refreshPatients();
           }}
         />
       </main>
