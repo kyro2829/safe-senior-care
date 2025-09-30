@@ -7,7 +7,7 @@ import { HealthCard } from "@/components/HealthCard";
 import { CreatePatientModal } from "@/components/CreatePatientModal";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { mockAlerts, getTimeAgo, getHealthStatusColor, type Alert } from "@/lib/mockData";
+import { mockAlerts, mockHealthData, getTimeAgo, getHealthStatusColor, type Alert } from "@/lib/mockData";
 import { 
   Users, 
   AlertTriangle, 
@@ -357,12 +357,12 @@ export default function CaregiverDashboard() {
 
         {/* Patient Details Modal */}
         <Dialog open={!!selectedPatient} onOpenChange={() => setSelectedPatient(null)}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
             {selectedPatient && (
               <>
                 <DialogHeader>
                   <DialogTitle className="text-xl">
-                    {getPatientDisplayName(selectedPatient)} - Profile Details
+                    {getPatientDisplayName(selectedPatient)} - Health Overview
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-6 py-4">
@@ -378,10 +378,58 @@ export default function CaregiverDashboard() {
                     </div>
                   </div>
 
-                  <div className="text-center">
-                    <p className="text-elderly text-muted-foreground">
-                      Health monitoring data will be displayed here once the patient starts using their account.
-                    </p>
+                  {/* Health Metrics */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-lg">Current Health Metrics</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Card className="p-4 border-l-4 border-l-destructive">
+                        <div className="flex items-center gap-3">
+                          <Heart className="h-8 w-8 text-destructive" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Heart Rate</p>
+                            <p className="text-2xl font-bold">{mockHealthData.heartRate.current} BPM</p>
+                            <p className="text-xs text-muted-foreground capitalize">Status: {mockHealthData.heartRate.status}</p>
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card className="p-4 border-l-4 border-l-primary">
+                        <div className="flex items-center gap-3">
+                          <Activity className="h-8 w-8 text-primary" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Daily Steps</p>
+                            <p className="text-2xl font-bold">{mockHealthData.steps.current.toLocaleString()}</p>
+                            <p className="text-xs text-muted-foreground">Goal: {mockHealthData.steps.goal.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card className="p-4 border-l-4 border-l-success">
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-8 w-8 text-success" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Sleep Duration</p>
+                            <p className="text-2xl font-bold">{mockHealthData.sleep.current} hrs</p>
+                            <p className="text-xs text-muted-foreground">Goal: {mockHealthData.sleep.goal} hrs</p>
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card className="p-4 border-l-4 border-l-warning">
+                        <div className="flex items-center gap-3">
+                          <AlertTriangle className="h-8 w-8 text-warning" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Fall Detection</p>
+                            <p className="text-2xl font-bold capitalize">{mockHealthData.fallDetection.status}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {mockHealthData.fallDetection.lastIncident 
+                                ? `Last: ${getTimeAgo(mockHealthData.fallDetection.lastIncident)}`
+                                : 'No incidents'}
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
                   </div>
                 </div>
               </>
