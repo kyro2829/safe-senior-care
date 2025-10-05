@@ -1,7 +1,20 @@
 import { useState, useEffect, createContext, useContext } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+
+interface User {
+  id: string;
+  email: string;
+  user_metadata: {
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+  };
+}
+
+interface Session {
+  user: User;
+  access_token: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -12,6 +25,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   createPatientAccount: (email: string, password: string, metadata: any) => Promise<{ error: any; data?: any }>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -23,6 +37,7 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => ({ error: null }),
   signOut: async () => {},
   createPatientAccount: async () => ({ error: null }),
+  resetPassword: async () => ({ error: null }),
 });
 
 export const useAuth = () => {
@@ -39,121 +54,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userRole, setUserRole] = useState<'caregiver' | 'patient' | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserRole = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching user role:', error);
-        return null;
-      }
-      
-      return (data?.role as 'caregiver' | 'patient' | undefined) ?? null;
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-      return null;
-    }
-  };
-
-  const ensureUserRole = async (userId: string): Promise<'caregiver' | 'patient' | null> => {
-    // Try to get role first
-    const currentRole = await fetchUserRole(userId);
-    if (currentRole) return currentRole;
-
-    // If no role exists, default to caregiver for existing accounts and persist it
-    try {
-      const { error } = await supabase.from('user_roles').insert({
-        user_id: userId,
-        role: 'caregiver',
-      });
-      if (error) {
-        console.error('Error assigning default role:', error);
-        return null;
-      }
-      return 'caregiver';
-    } catch (e) {
-      console.error('Error assigning default role:', e);
-      return null;
-    }
-  };
-
-
+  // Initialize from localStorage
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Fetch user role asynchronously
-          setTimeout(async () => {
-            const role = await ensureUserRole(session.user.id);
-            setUserRole(role);
-            setLoading(false);
-          }, 0);
-        } else {
-          setUserRole(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Fetch user role for existing session
-        setTimeout(async () => {
-          const role = await ensureUserRole(session.user.id);
-          setUserRole(role);
-          setLoading(false);
-        }, 0);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    const storedUser = localStorage.getItem('auth_user');
+    const storedSession = localStorage.getItem('auth_session');
+    const storedRole = localStorage.getItem('auth_role');
+    
+    if (storedUser && storedSession && storedRole) {
+      setUser(JSON.parse(storedUser));
+      setSession(JSON.parse(storedSession));
+      setUserRole(storedRole as 'caregiver' | 'patient');
+    }
+    setLoading(false);
   }, []);
 
   const signUp = async (email: string, password: string, metadata: any = {}) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: metadata,
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
-
-      if (error) {
+      // Get existing users from localStorage
+      const users = JSON.parse(localStorage.getItem('app_users') || '[]');
+      
+      // Check if user already exists
+      if (users.find((u: any) => u.email === email)) {
+        const error = { message: 'User already exists' };
         toast.error(error.message);
         return { error };
       }
 
-      if (data.user) {
-        // Create user role as caregiver by default for signup
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .insert({
-            user_id: data.user.id,
-            role: 'caregiver'
-          });
+      // Create new user
+      const newUser: User = {
+        id: crypto.randomUUID(),
+        email,
+        user_metadata: metadata
+      };
 
-        if (roleError) {
-          console.error('Error creating user role:', roleError);
-        }
-      }
+      const newSession: Session = {
+        user: newUser,
+        access_token: crypto.randomUUID()
+      };
 
-      toast.success('Registration successful! Please check your email to verify your account.');
+      // Store user data
+      users.push({
+        ...newUser,
+        password, // In real app, this would be hashed
+        role: 'caregiver'
+      });
+      localStorage.setItem('app_users', JSON.stringify(users));
+
+      // Set current auth state
+      setUser(newUser);
+      setSession(newSession);
+      setUserRole('caregiver');
+      
+      localStorage.setItem('auth_user', JSON.stringify(newUser));
+      localStorage.setItem('auth_session', JSON.stringify(newSession));
+      localStorage.setItem('auth_role', 'caregiver');
+
+      toast.success('Registration successful!');
       return { error: null };
     } catch (error: any) {
       toast.error(error.message);
@@ -163,15 +119,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
+      // Get existing users from localStorage
+      const users = JSON.parse(localStorage.getItem('app_users') || '[]');
+      
+      // Find user
+      const foundUser = users.find((u: any) => u.email === email && u.password === password);
+      
+      if (!foundUser) {
+        const error = { message: 'Invalid email or password' };
         toast.error(error.message);
         return { error };
       }
+
+      const user: User = {
+        id: foundUser.id,
+        email: foundUser.email,
+        user_metadata: foundUser.user_metadata
+      };
+
+      const session: Session = {
+        user,
+        access_token: crypto.randomUUID()
+      };
+
+      // Set current auth state
+      setUser(user);
+      setSession(session);
+      setUserRole(foundUser.role);
+      
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      localStorage.setItem('auth_session', JSON.stringify(session));
+      localStorage.setItem('auth_role', foundUser.role);
 
       toast.success('Successfully signed in!');
       return { error: null };
@@ -183,15 +161,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success('Successfully signed out!');
-        setUser(null);
-        setSession(null);
-        setUserRole(null);
-      }
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_session');
+      localStorage.removeItem('auth_role');
+      
+      setUser(null);
+      setSession(null);
+      setUserRole(null);
+      
+      toast.success('Successfully signed out!');
     } catch (error: any) {
       toast.error(error.message);
     }
@@ -199,33 +177,66 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const createPatientAccount = async (email: string, password: string, metadata: any) => {
     try {
-      // Call the edge function to create patient account
-      const { data, error } = await supabase.functions.invoke('create-patient', {
-        body: {
-          email,
-          password,
-          metadata
-        }
-      });
-
-      if (error) {
+      if (!user || userRole !== 'caregiver') {
+        const error = { message: 'Only caregivers can create patient accounts' };
         toast.error(error.message);
         return { error };
       }
 
-      if (data?.error) {
-        toast.error(data.error);
-        return { error: data.error };
+      // Get existing users from localStorage
+      const users = JSON.parse(localStorage.getItem('app_users') || '[]');
+      
+      // Check if user already exists
+      if (users.find((u: any) => u.email === email)) {
+        const error = { message: 'User already exists' };
+        toast.error(error.message);
+        return { error };
       }
 
-      if (data?.success) {
-        toast.success('Patient account created successfully!');
-        return { error: null, data: data.user };
-      }
+      // Create new patient
+      const newPatient = {
+        id: crypto.randomUUID(),
+        email,
+        password,
+        user_metadata: metadata,
+        role: 'patient'
+      };
 
-      return { error: 'Unknown error occurred' };
+      users.push(newPatient);
+      localStorage.setItem('app_users', JSON.stringify(users));
+
+      // Store caregiver-patient relationship
+      const relationships = JSON.parse(localStorage.getItem('caregiver_patients') || '[]');
+      relationships.push({
+        caregiver_id: user.id,
+        patient_id: newPatient.id
+      });
+      localStorage.setItem('caregiver_patients', JSON.stringify(relationships));
+
+      toast.success('Patient account created successfully!');
+      return { error: null, data: { id: newPatient.id, email: newPatient.email } };
     } catch (error: any) {
       toast.error(error.message || 'Failed to create patient account');
+      return { error };
+    }
+  };
+
+  const resetPassword = async (email: string) => {
+    try {
+      // Simulate password reset
+      const users = JSON.parse(localStorage.getItem('app_users') || '[]');
+      const foundUser = users.find((u: any) => u.email === email);
+      
+      if (!foundUser) {
+        const error = { message: 'User not found' };
+        toast.error(error.message);
+        return { error };
+      }
+
+      toast.success('Password reset link sent! (This is a simulation)');
+      return { error: null };
+    } catch (error: any) {
+      toast.error(error.message);
       return { error };
     }
   };
@@ -238,7 +249,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signUp,
     signIn,
     signOut,
-    createPatientAccount
+    createPatientAccount,
+    resetPassword
   };
 
   return (

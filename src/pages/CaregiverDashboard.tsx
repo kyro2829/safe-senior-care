@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { HealthCard } from "@/components/HealthCard";
 import { CreatePatientModal } from "@/components/CreatePatientModal";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { mockAlerts, mockHealthData, getTimeAgo, getHealthStatusColor, type Alert } from "@/lib/mockData";
 import { 
   Users, 
@@ -44,32 +43,26 @@ export default function CaregiverDashboard() {
       if (!user?.id) return;
       
       try {
-        // First get the patient relationships
-        const { data: relationships, error: relError } = await supabase
-          .from('caregiver_patients')
-          .select('patient_id')
-          .eq('caregiver_id', user.id);
-        
-        if (relError) {
-          console.error('Error fetching relationships:', relError);
-          setLoading(false);
-          return;
-        }
-        
-        const patientIds = relationships?.map(r => r.patient_id) || [];
+        // Get caregiver-patient relationships from localStorage
+        const relationships = JSON.parse(localStorage.getItem('caregiver_patients') || '[]');
+        const caregiverRelationships = relationships.filter((r: any) => r.caregiver_id === user.id);
+        const patientIds = caregiverRelationships.map((r: any) => r.patient_id);
         
         if (patientIds.length > 0) {
-          // Then get the profiles for those patient IDs
-          const { data: profiles, error: profileError } = await supabase
-            .from('profiles')
-            .select('id, user_id, first_name, last_name, phone, emergency_contact')
-            .in('user_id', patientIds);
+          // Get user data from localStorage
+          const users = JSON.parse(localStorage.getItem('app_users') || '[]');
+          const patientProfiles = users
+            .filter((u: any) => patientIds.includes(u.id))
+            .map((u: any) => ({
+              id: u.id,
+              user_id: u.id,
+              first_name: u.user_metadata?.first_name || null,
+              last_name: u.user_metadata?.last_name || null,
+              phone: u.user_metadata?.phone || null,
+              emergency_contact: u.user_metadata?.emergency_contact || null,
+            }));
           
-          if (profileError) {
-            console.error('Error fetching profiles:', profileError);
-          } else if (profiles) {
-            setPatients(profiles);
-          }
+          setPatients(patientProfiles);
         } else {
           setPatients([]);
         }
@@ -90,30 +83,26 @@ export default function CaregiverDashboard() {
     if (!user?.id) return;
     
     try {
-      // Manual join approach
-      const { data: relationships, error: relError } = await supabase
-        .from('caregiver_patients')
-        .select('patient_id')
-        .eq('caregiver_id', user.id);
-      
-      if (relError || !relationships) {
-        console.error('Error fetching relationships:', relError);
-        return;
-      }
-      
-      const patientIds = relationships.map(r => r.patient_id);
+      // Get caregiver-patient relationships from localStorage
+      const relationships = JSON.parse(localStorage.getItem('caregiver_patients') || '[]');
+      const caregiverRelationships = relationships.filter((r: any) => r.caregiver_id === user.id);
+      const patientIds = caregiverRelationships.map((r: any) => r.patient_id);
       
       if (patientIds.length > 0) {
-        const { data: profiles, error: profileError } = await supabase
-          .from('profiles')
-          .select('id, user_id, first_name, last_name, phone, emergency_contact')
-          .in('user_id', patientIds);
+        // Get user data from localStorage
+        const users = JSON.parse(localStorage.getItem('app_users') || '[]');
+        const patientProfiles = users
+          .filter((u: any) => patientIds.includes(u.id))
+          .map((u: any) => ({
+            id: u.id,
+            user_id: u.id,
+            first_name: u.user_metadata?.first_name || null,
+            last_name: u.user_metadata?.last_name || null,
+            phone: u.user_metadata?.phone || null,
+            emergency_contact: u.user_metadata?.emergency_contact || null,
+          }));
         
-        if (profileError) {
-          console.error('Error fetching profiles:', profileError);
-        } else if (profiles) {
-          setPatients(profiles);
-        }
+        setPatients(patientProfiles);
       } else {
         setPatients([]);
       }

@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { HealthCard } from "@/components/HealthCard";
 import { mockHealthData, getTimeAgo } from "@/lib/mockData";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Phone, Activity, TrendingUp, Clock, Shield, LogOut } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -29,16 +28,18 @@ export default function PatientDashboard() {
       if (!user?.id) return;
       
       try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, phone, emergency_contact')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        // Get user data from localStorage
+        const users = JSON.parse(localStorage.getItem('app_users') || '[]');
+        const foundUser = users.find((u: any) => u.id === user.id);
         
-        if (error) {
-          console.error('Error fetching user profile:', error);
-        } else if (data) {
-          setUserProfile(data);
+        if (foundUser) {
+          setUserProfile({
+            id: foundUser.id,
+            first_name: foundUser.user_metadata?.first_name || null,
+            last_name: foundUser.user_metadata?.last_name || null,
+            phone: foundUser.user_metadata?.phone || null,
+            emergency_contact: foundUser.user_metadata?.emergency_contact || null,
+          });
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
